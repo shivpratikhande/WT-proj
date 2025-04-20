@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather Location Selector</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f4f4f4;
+      font-family: Arial, sans-serif;
+      margin: 0;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      width: 400px;
+      text-align: center;
+      position: relative;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    .dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 100%;
+      max-height: 200px;
+      overflow-y: auto;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      display: none;
+      z-index: 1000;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .dropdown div {
+      padding: 10px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .dropdown div:hover {
+      background: #ddd;
+    }
+    #weatherResult {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    .selected-location {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #666;
+    }
+    .button-row {
+      display: flex;
+      gap: 10px;
+    }
+    .button-row button {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Select Your Location</h1>
+    <input type="text" id="city" placeholder="Enter city name (e.g., Mumbai)" oninput="debounce(fetchSuggestions, 300)()">
+    <div id="suggestions" class="dropdown"></div>
+    <p id="selectedLocation" class="selected-location"></p>
+    <button onclick="setLocation()">Set Location</button>
+    
+    <div class="button-row">
+      <button onclick="checkPrecipitation()">Check Precipitation</button>
+      <button onclick="checkSimplePrecipitation()">Simple Check</button>
+    </div>
+    
+    <p id="weatherResult"></p>
+  </div>
+
+  <script>
+    let debounceTimer;
+    let selectedLocationData = null;
+
+    function debounce(func, delay) {
+      return function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => func(), delay);
+      };
+    }
+
+    async function fetchSuggestions() {
+      const query = document.getElementById("city").value.trim();
+      if (query.length < 3) {
+        document.getElementById("suggestions").style.display = "none";
+        return;
+      }
+
+      try {
+        const geoUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`;
+        const geoResponse = await fetch(geoUrl, {
+          headers: {
+            'User-Agent': 'WeatherLocationApp/1.0'
+          }
+        });
+        const geoData = await geoResponse.json();
+
+        let suggestionsContainer = document.getElementById("suggestions");
+        suggestionsContainer.innerHTML = "";
+        if (geoData.length === 0) {
+          suggestionsContainer.style.display = "none";
+          return;
+        }
+
+        geoData.forEach(location => {
+          let div = document.createElement("div");
+          div.innerText = location.display_name;
+          div.onclick = function() {
+            document.getElementById("city").value = location.display_name;
+            document.getElementById("selectedLocation").innerText = `Selected: ${location.display_name}`;
+            selectedLocationData = {
+              city: location.display_name,
+              lat: location.lat,
+              lon: location.lon
+            };
+            suggestionsContainer.style.display = "none";
+          };
+          suggestionsContainer.appendChild(div);
+        });
+
+        suggestionsContainer.style.display = "block";
+      } catch (error) {
+        console.error("Error fetching suggestions:", error);
+      }
+    }
+
+    async function setLocation() {
+      if (!selectedLocationData) {
+        alert("Please select a location from the dropdown list.");
+        return;
+      }
+
+      try {
+        const response = await fetch("http://localhost:3000/set-location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(selectedLocationData),
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert(data.message || "Location saved successfully!");
+        } else {
+          alert(data.error || "Failed to save location");
+        }
+      } catch (error) {
+        console.error("Error setting location:", error);
+        alert("Failed to connect to server. Make sure the backend is running.");
+      }
+    }
+
+    async function checkPrecipitation() {
+      try {
+        const response = await fetch("http://localhost:3000/will-precipitate");
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          document.getElementById("weatherResult").innerText = errorData.error || "Error fetching weather data";
+          return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.error) {
+          document.getElementById("weatherResult").innerText = data.error;
+        } else if (data.precipitate === null) {
+          document.getElementById("weatherResult").innerText = "Weather data not available yet. Please try again later.";
+        } else {
+          document.getElementById("weatherResult").innerText = data.precipitate
+            ? "Yes, it will precipitate today!"
+            : "No precipitation expected today.";
+        }
+      } catch (error) {
+        console.error("Error fetching precipitation data:", error);
+        document.getElementById("weatherResult").innerText = "Failed to connect to server. Make sure the backend is running.";
+      }
+    }
+    
+    // New function for simplified precipitation check
+    async function checkSimplePrecipitation() {
+      try {
+        const response = await fetch("http://localhost:3000/precipitation-status");
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          document.getElementById("weatherResult").innerText = errorData.error || "Error fetching weather data";
+          return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.message && data.message.includes("not available")) {
+          document.getElementById("weatherResult").innerText = "Weather data not available yet. Please try again later.";
+          return;
+        }
+        
+        const locationName = data.location ? `in ${data.location}` : '';
+        const timeInfo = data.lastUpdated ? ` (as of ${new Date(data.lastUpdated).toLocaleTimeString()})` : '';
+        
+        document.getElementById("weatherResult").innerText = data.precipitating
+          ? `☔ Yes, it's precipitating ${locationName}${timeInfo}`
+          : `☀️ No precipitation ${locationName}${timeInfo}`;
+      } catch (error) {
+        console.error("Error fetching simple precipitation data:", error);
+        document.getElementById("weatherResult").innerText = "Failed to connect to server. Make sure the backend is running.";
+      }
+    }
+  </script>
+</body>
+</html>
