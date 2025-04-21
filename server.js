@@ -74,7 +74,7 @@ async function fetchWeather() {
     
     const weatherCode = response.data.current_weather.weathercode;
     // Weather codes 51-99 represent precipitation (rain, snow, etc.)
-    weatherData.precipitate = (weatherCode >= 51 && weatherCode <= 99) ? 1 : 0;
+    weatherData.precipitate = (weatherCode >= 51 && weatherCode <= 99) ? 0 : 1;
     weatherData.lastUpdated = new Date().toISOString();
     
     console.log("Updated weather data:", weatherData);

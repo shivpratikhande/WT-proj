@@ -149,7 +149,7 @@
       }
 
       try {
-        const response = await fetch("http://localhost:3000/set-location", {
+        const response = await fetch("https://wt-proj.onrender.com/set-location", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(selectedLocationData),
@@ -169,7 +169,7 @@
 
     async function checkPrecipitation() {
       try {
-        const response = await fetch("http://localhost:3000/will-precipitate");
+        const response = await fetch("https://wt-proj.onrender.com/will-precipitate");
         
         if (!response.ok) {
           const errorData = await response.json();
@@ -197,7 +197,7 @@
     // New function for simplified precipitation check
     async function checkSimplePrecipitation() {
       try {
-        const response = await fetch("http://localhost:3000/precipitation-status");
+        const response = await fetch("https://wt-proj.onrender.com/precipitation-status");
         
         if (!response.ok) {
           const errorData = await response.json();
